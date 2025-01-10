@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.ToString;
 import org.cox.anno.Describe;
 import org.cox.expr.Expr;
+import org.cox.token.Token;
 import org.cox.visitor.StmtVisitor;
 
 public abstract class Stmt {
@@ -38,4 +39,17 @@ public abstract class Stmt {
         }
     }
 
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("Let 变量 (= 表达式)?; 构成语句")
+    public static class LET extends Stmt{
+        private Token name;
+        private Expr expr;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitLET(this);
+        }
+    }
 }

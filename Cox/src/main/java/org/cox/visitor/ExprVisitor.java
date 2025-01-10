@@ -11,4 +11,8 @@ public interface ExprVisitor {
     Object visitLiteral(Expr.Literal literal);
 
     Object visitUnary(Expr.Unary unary);
+
+    Object visitVariable(Expr.Variable variable);
+
+    Object visitAssign(Expr.Assign assign);
 }

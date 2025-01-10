@@ -68,4 +68,31 @@ public abstract class Expr {
             return visitor.visitUnary(this);
         }
     }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("变量")
+    @ToString
+    public static class Variable extends Expr {
+        final Token name;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitVariable(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("赋值")
+    @ToString
+    public static class Assign extends Expr {
+        final Token name;
+        final Expr expr;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitAssign(this);
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package org.cox.visitor;
 
+import org.cox.env.Environment;
 import org.cox.expr.Expr;
 import org.cox.stmt.Stmt;
 import org.cox.utils.Cox;
@@ -7,6 +8,8 @@ import org.cox.utils.Cox;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
+
+    Environment environment = new Environment();
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
@@ -132,5 +135,25 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
             }
         }
         return value;
+    }
+
+    @Override
+    public void visitLET(Stmt.LET let) {
+        Object value = null;
+        if (let.getExpr() != null)
+            value = let.getExpr().execute(this);
+        environment.define(let.getName(), value);
+    }
+
+    @Override
+    public Object visitVariable(Expr.Variable variable) {
+        return environment.get(variable.getName());
+    }
+
+    @Override
+    public Object visitAssign(Expr.Assign assign) {
+        Object execute = assign.getExpr().execute(this);
+        environment.set(assign.getName(), execute);
+        return execute;
     }
 }

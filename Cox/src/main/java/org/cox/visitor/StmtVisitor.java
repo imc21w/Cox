@@ -6,4 +6,6 @@ public interface StmtVisitor {
     void visitExpression(Stmt.Expression expression);
 
     void visitPrint(Stmt.Print print);
+
+    void visitLET(Stmt.LET let);
 }

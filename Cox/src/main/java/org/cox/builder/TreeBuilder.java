@@ -11,19 +11,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * expression     → equality ;
- * equality       → comparison ( ( "!=" | "==" ) comparison )* ;
- * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
- * term           → factor ( ( "-" | "+" ) factor )* ;
- * factor         → unary ( ( "/" | "*" ) unary )* ;
- * unary          → ( "!" | "-" ) unary
+ * expression     -> assign ;
+ * assign         -> identifier "=" equality | equality;
+ * equality       -> comparison ( ( "!=" | "==" ) comparison )* ;
+ * comparison     -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+ * term           -> factor ( ( "-" | "+" ) factor )* ;
+ * factor         -> unary ( ( "/" | "*" ) unary )* ;
+ * unary          -> ( "!" | "-" ) unary
  *                | primary ;
- * primary        → NUMBER | STRING | "true" | "false" | "null"
- *                | "(" expression ")" ;
+ * primary        -> NUMBER | STRING | "true" | "false" | "null"
+ *                | "(" expression ")" | identifier ;
  */
 
 /**
- * stmt           -> expressionStmt | print
+ * stmt           -> expressionStmt | print | let
+ * let            -> "let" identifier ( "=" expression ) ?
  * print          -> "print" expression ";"
  * expressionStmt -> expression ";"
  */
@@ -47,15 +49,36 @@ public class TreeBuilder {
     }
 
     private Stmt stmt() {
-        Token token = advance();
+        Token token = peek();
 
         switch (token.getType()){
-            case PRINT:
+            case PRINT: {
+                advance();
                 return buildPrintStmt();
+            }
+
+            case LET: {
+                advance();
+                return buildLetStmt();
+            }
 
             default:
                 return buildExprStmt();
         }
+    }
+
+    private Stmt buildLetStmt() {
+
+        Assert(TokenType.IDENTIFIER, "不能定义非变量");
+
+        Token name = previous();
+        Expr expr = null;
+
+        if (match(TokenType.EQUAL))
+            expr = expression();
+
+        Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+        return new Stmt.LET(name, expr);
     }
 
     private Stmt buildExprStmt() {
@@ -71,7 +94,18 @@ public class TreeBuilder {
     }
 
     private Expr expression(){
-        return equality();
+        return assign();
+    }
+
+    private Expr assign() {
+        Expr expr = equality();
+
+        if (match(TokenType.EQUAL)){
+            Expr equality = assign();
+            return new Expr.Assign(((Expr.Variable) expr).getName(), equality);
+        }
+
+        return expr;
     }
 
     private Expr equality() {
@@ -153,6 +187,8 @@ public class TreeBuilder {
                 return new Expr.Literal(true);
             case FALSE:
                 return new Expr.Literal(false);
+            case IDENTIFIER:
+                return new Expr.Variable(token);
             case LEFT_PAREN:
                 Expr expr = expression();
                 Assert(TokenType.RIGHT_PAREN, "必须有匹配的右括号");
