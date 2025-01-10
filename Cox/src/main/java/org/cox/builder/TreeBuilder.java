@@ -1,10 +1,12 @@
 package org.cox.builder;
 
 import org.cox.expr.Expr;
+import org.cox.stmt.Stmt;
 import org.cox.token.Token;
 import org.cox.token.TokenType;
 import org.cox.utils.Cox;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +21,12 @@ import java.util.List;
  * primary        → NUMBER | STRING | "true" | "false" | "null"
  *                | "(" expression ")" ;
  */
+
+/**
+ * stmt           -> expressionStmt | print
+ * print          -> "print" expression ";"
+ * expressionStmt -> expression ";"
+ */
 public class TreeBuilder {
 
     private final List<Token> tokens;
@@ -28,7 +36,41 @@ public class TreeBuilder {
         this.tokens = tokens;
     }
 
-    public Expr expression(){
+    public List<Stmt> parse(){
+        List<Stmt> stmts = new ArrayList<>();
+
+        while (!isAtEnd()){
+            stmts.add(stmt());
+        }
+
+        return stmts;
+    }
+
+    private Stmt stmt() {
+        Token token = advance();
+
+        switch (token.getType()){
+            case PRINT:
+                return buildPrintStmt();
+
+            default:
+                return buildExprStmt();
+        }
+    }
+
+    private Stmt buildExprStmt() {
+        Expr expr = expression();
+        Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+        return new Stmt.Expression(expr);
+    }
+
+    private Stmt buildPrintStmt() {
+        Expr expr = expression();
+        Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+        return new Stmt.Print(expr);
+    }
+
+    private Expr expression(){
         return equality();
     }
 
@@ -104,7 +146,7 @@ public class TreeBuilder {
             case NULL:
                 return new Expr.Literal(null);
             case NUMBER:
-                return new Expr.Literal(Double.parseDouble(token.getLiteral().toString()));
+                return new Expr.Literal(new BigDecimal(token.getLiteral().toString()));
             case STRING:
                 return new Expr.Literal(token.getLiteral().toString());
             case TRUE:

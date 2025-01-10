@@ -1,9 +1,12 @@
 package org.cox.visitor;
 
 import org.cox.expr.Expr;
+import org.cox.stmt.Stmt;
 import org.cox.utils.Cox;
 
-public class EvaluateVisitor implements ExprVisitor{
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
@@ -12,52 +15,60 @@ public class EvaluateVisitor implements ExprVisitor{
 
         switch (expr.getOperator().getType()){
             case PLUS:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) + ((Double) right);
-                if (left instanceof String || right instanceof String)
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).add(((BigDecimal) right));
+                else if (left instanceof String || right instanceof String)
                     return left.toString() + right.toString();
                 Cox.error(expr.getOperator().getLine(), "无效的 PLUS");
                 break;
 
             case MINUS:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) - ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).subtract(((BigDecimal) right));
                 Cox.error(expr.getOperator().getLine(), "无效的 MINUS");
                 break;
 
             case STAR:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) * ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).multiply(((BigDecimal) right));
                 Cox.error(expr.getOperator().getLine(), "无效的 STAR");
                 break;
 
             case SLASH:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) / ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).divide(((BigDecimal) right), 16, RoundingMode.HALF_UP);
                 Cox.error(expr.getOperator().getLine(), "无效的 SLASH");
                 break;
 
             case GREATER:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) > ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).compareTo(((BigDecimal) right)) > 0;
+                else if (left instanceof String && right instanceof String)
+                    return ((String) left).compareTo(((String) right)) > 0;
                 Cox.error(expr.getOperator().getLine(), "无效的 GREATER");
                 break;
 
             case GREATER_EQUAL:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) >= ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).compareTo(((BigDecimal) right)) >= 0;
+                else if (left instanceof String && right instanceof String)
+                    return ((String) left).compareTo(((String) right)) >= 0;
                 Cox.error(expr.getOperator().getLine(), "无效的 GREATER_EQUAL");
                 break;
 
             case LESS:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) < ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).compareTo(((BigDecimal) right)) < 0;
+                else if (left instanceof String && right instanceof String)
+                    return ((String) left).compareTo(((String) right)) < 0;
                 Cox.error(expr.getOperator().getLine(), "无效的 LESS");
                 break;
 
             case LESS_EQUAL:
-                if (left instanceof Double && right instanceof Double)
-                    return ((Double) left) <= ((Double) right);
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).compareTo(((BigDecimal) right)) <= 0;
+                else if (left instanceof String && right instanceof String)
+                    return ((String) left).compareTo(((String) right)) <= 0;
                 Cox.error(expr.getOperator().getLine(), "无效的 LESS_EQUAL");
                 break;
 
@@ -88,8 +99,8 @@ public class EvaluateVisitor implements ExprVisitor{
         Object value = expr.getRight().execute(this);
         switch (expr.getOperator().getType()){
             case MINUS:
-                if (value instanceof Double)
-                    return -((Double) value);
+                if (value instanceof BigDecimal)
+                    return ((BigDecimal) value).negate();
                 Cox.error(expr.getOperator().getLine(), "-表达式右值只能是数字型");
                 break;
             case BANG:
@@ -104,4 +115,22 @@ public class EvaluateVisitor implements ExprVisitor{
         return null;
     }
 
+    @Override
+    public void visitExpression(Stmt.Expression expression) {
+        expression.getExpr().execute(this);
+    }
+
+    @Override
+    public void visitPrint(Stmt.Print print) {
+        System.out.println(castInt(print.getExpr().execute(this)));
+    }
+
+    private Object castInt(Object value){
+        if (value instanceof BigDecimal){
+            if (((BigDecimal) value).stripTrailingZeros().scale() <= 0) {
+                return ((BigDecimal) value).toBigInteger();
+            }
+        }
+        return value;
+    }
 }

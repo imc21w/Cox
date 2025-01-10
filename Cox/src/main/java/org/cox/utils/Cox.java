@@ -3,6 +3,7 @@ package org.cox.utils;
 import org.cox.builder.TreeBuilder;
 import org.cox.expr.Expr;
 import org.cox.scanner.TokenScanner;
+import org.cox.stmt.Stmt;
 import org.cox.token.Token;
 import org.cox.visitor.EvaluateVisitor;
 
@@ -13,11 +14,11 @@ public class Cox {
         throw new RuntimeException("第" + line + "行发生了错误, msg:" + msg);
     }
 
-    public static Object evaluate(String source) {
+    public static void run(String source) {
         List<Token> tokens = TokenScanner.readTokens(source);
         TreeBuilder treeBuilder = new TreeBuilder(tokens);
-        Expr expression = treeBuilder.expression();
+        List<Stmt> stmtList = treeBuilder.parse();
         EvaluateVisitor visitor = new EvaluateVisitor();
-        return expression.execute(visitor);
+        stmtList.forEach(e -> e.execute(visitor));
     }
 }
