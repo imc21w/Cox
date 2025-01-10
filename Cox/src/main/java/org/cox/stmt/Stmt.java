@@ -8,6 +8,8 @@ import org.cox.expr.Expr;
 import org.cox.token.Token;
 import org.cox.visitor.StmtVisitor;
 
+import java.util.List;
+
 public abstract class Stmt {
 
     // 操作
@@ -42,7 +44,7 @@ public abstract class Stmt {
     @AllArgsConstructor
     @ToString
     @Getter
-    @Describe("Let 变量 (= 表达式)?; 构成语句")
+    @Describe("let 变量 (= 表达式)?; 构成语句")
     public static class LET extends Stmt{
         private Token name;
         private Expr expr;
@@ -50,6 +52,19 @@ public abstract class Stmt {
         @Override
         public void execute(StmtVisitor visitor) {
             visitor.visitLET(this);
+        }
+    }
+
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("{...} 构成语句")
+    public static class Block extends Stmt{
+        private List<Stmt> stmts;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitBlock(this);
         }
     }
 }

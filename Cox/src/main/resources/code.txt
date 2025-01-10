@@ -1,0 +1,12 @@
+let a = 10;
+let b = 12;
+
+{
+    let c = 18.12;
+    let d = "价格:";
+    print a = c;
+    print d + a;
+}
+
+print a;
+print b;

@@ -8,4 +8,6 @@ public interface StmtVisitor {
     void visitPrint(Stmt.Print print);
 
     void visitLET(Stmt.LET let);
+
+    void visitBlock(Stmt.Block block);
 }

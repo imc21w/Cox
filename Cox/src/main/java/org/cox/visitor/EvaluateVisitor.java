@@ -9,7 +9,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
 
-    Environment environment = new Environment();
+    Environment environment = null;
+
+    public EvaluateVisitor(Environment env) {
+        this.environment = env;
+    }
+
+    public EvaluateVisitor() {
+        this(new Environment());
+    }
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
@@ -21,7 +29,7 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
                 if (left instanceof BigDecimal && right instanceof BigDecimal)
                     return ((BigDecimal) left).add(((BigDecimal) right));
                 else if (left instanceof String || right instanceof String)
-                    return left.toString() + right.toString();
+                    return castInt(left).toString() + castInt(right).toString();
                 Cox.error(expr.getOperator().getLine(), "无效的 PLUS");
                 break;
 
@@ -155,5 +163,12 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
         Object execute = assign.getExpr().execute(this);
         environment.set(assign.getName(), execute);
         return execute;
+    }
+
+    @Override
+    public void visitBlock(Stmt.Block block) {
+        Environment inner = new Environment(this.environment);
+        EvaluateVisitor visitor = new EvaluateVisitor(inner);
+        block.getStmts().forEach(m -> m.execute(visitor));
     }
 }

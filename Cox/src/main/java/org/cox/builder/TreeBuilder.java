@@ -24,7 +24,8 @@ import java.util.List;
  */
 
 /**
- * stmt           -> expressionStmt | print | let
+ * stmt           -> expressionStmt | print | let | block
+ * block          -> "{" stmt* "}"
  * let            -> "let" identifier ( "=" expression ) ?
  * print          -> "print" expression ";"
  * expressionStmt -> expression ";"
@@ -62,9 +63,26 @@ public class TreeBuilder {
                 return buildLetStmt();
             }
 
+            case LEFT_BRACE: {
+                advance();
+                return buildLetBlock();
+            }
+
             default:
                 return buildExprStmt();
         }
+    }
+
+    private Stmt buildLetBlock() {
+        List<Stmt> stmts = new ArrayList<>();
+
+        while (!isAtEnd() && !check(TokenType.RIGHT_BRACE)){
+            stmts.add(stmt());
+        }
+
+        Assert(TokenType.RIGHT_BRACE, "未闭合右括号");
+
+        return new Stmt.Block(stmts);
     }
 
     private Stmt buildLetStmt() {
@@ -201,6 +219,9 @@ public class TreeBuilder {
     }
 
     private boolean match(TokenType... tokenTypes) {
+
+        if (isAtEnd())
+            return false;
 
         for (TokenType tokenType : tokenTypes) {
             if (check(tokenType)) {

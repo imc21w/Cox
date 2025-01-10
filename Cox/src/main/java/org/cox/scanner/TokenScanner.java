@@ -146,6 +146,7 @@ public class TokenScanner {
                 break;
             case ' ':
             case '\t':
+            case '\r':
                 break;
             case '"': string(); break;
             default:
