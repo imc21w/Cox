@@ -1,7 +1,10 @@
 package org.cox.utils;
 
+import org.cox.builder.TreeBuilder;
+import org.cox.expr.Expr;
 import org.cox.scanner.TokenScanner;
 import org.cox.token.Token;
+import org.cox.visitor.EvaluateVisitor;
 
 import java.util.List;
 
@@ -10,7 +13,11 @@ public class Cox {
         throw new RuntimeException("第" + line + "行发生了错误, msg:" + msg);
     }
 
-    public static List<Token> readTokens(String source) {
-        return TokenScanner.readTokens(source);
+    public static Object evaluate(String source) {
+        List<Token> tokens = TokenScanner.readTokens(source);
+        TreeBuilder treeBuilder = new TreeBuilder(tokens);
+        Expr expression = treeBuilder.expression();
+        EvaluateVisitor visitor = new EvaluateVisitor();
+        return expression.execute(visitor);
     }
 }
