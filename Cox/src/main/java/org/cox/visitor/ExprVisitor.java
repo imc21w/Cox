@@ -15,4 +15,8 @@ public interface ExprVisitor {
     Object visitVariable(Expr.Variable variable);
 
     Object visitAssign(Expr.Assign assign);
+
+    Object visitOr(Expr.Or or);
+
+    Object visitAnd(Expr.And and);
 }

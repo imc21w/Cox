@@ -5,6 +5,7 @@ import org.cox.stmt.Stmt;
 import org.cox.token.Token;
 import org.cox.token.TokenType;
 import org.cox.utils.Cox;
+import org.cox.utils.Pair;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -12,7 +13,9 @@ import java.util.List;
 
 /**
  * expression     -> assign ;
- * assign         -> identifier "=" equality | equality;
+ * assign         -> identifier "=" logic_or | logic_or;
+ * logic_or       -> logic_and ("or" logic_and) *
+ * logic_and      -> equality ("and" equality) *
  * equality       -> comparison ( ( "!=" | "==" ) comparison )* ;
  * comparison     -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           -> factor ( ( "-" | "+" ) factor )* ;
@@ -68,9 +71,39 @@ public class TreeBuilder {
                 return buildLetBlock();
             }
 
+            case IF: {
+                advance();
+                return buildLetIF();
+            }
+
             default:
                 return buildExprStmt();
         }
+    }
+
+    private Stmt buildLetIF() {
+        Assert(TokenType.LEFT_PAREN, "if 后必须接括号");
+        Expr expr = expression();
+        Assert(TokenType.RIGHT_PAREN, "if 的括号表达式未闭合");
+        Stmt stmt = stmt();
+        Stmt elseStmt = null;
+
+        List<Pair<Expr, Stmt>> ifList = new ArrayList<>();
+        ifList.add(Pair.of(expr, stmt));
+
+        while (match(TokenType.WHEN)){
+            Assert(TokenType.LEFT_PAREN, "if 后必须接括号");
+            Expr expr1 = expression();
+            Assert(TokenType.RIGHT_PAREN, "if 的括号表达式未闭合");
+            Stmt stmt1 = stmt();
+            ifList.add(Pair.of(expr1, stmt1));
+        }
+
+        if (match(TokenType.ELSE)){
+            elseStmt = stmt();
+        }
+
+        return new Stmt.IF(ifList, elseStmt);
     }
 
     private Stmt buildLetBlock() {
@@ -116,11 +149,33 @@ public class TreeBuilder {
     }
 
     private Expr assign() {
-        Expr expr = equality();
+        Expr expr = logicOr();
 
         if (match(TokenType.EQUAL)){
-            Expr equality = assign();
+            Expr equality = logicOr();
             return new Expr.Assign(((Expr.Variable) expr).getName(), equality);
+        }
+
+        return expr;
+    }
+
+    private Expr logicOr() {
+        Expr expr = logicAnd();
+
+        while (match(TokenType.OR)){
+            Expr orExpr = logicAnd();
+            expr = new Expr.Or(expr, orExpr);
+        }
+
+        return expr;
+    }
+
+    private Expr logicAnd() {
+        Expr expr = equality();
+
+        while (match(TokenType.AND)){
+            Expr orExpr = equality();
+            expr = new Expr.And(expr, orExpr);
         }
 
         return expr;

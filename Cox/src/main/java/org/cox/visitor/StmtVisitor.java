@@ -10,4 +10,6 @@ public interface StmtVisitor {
     void visitLET(Stmt.LET let);
 
     void visitBlock(Stmt.Block block);
+
+    void visitIF(Stmt.IF anIf);
 }

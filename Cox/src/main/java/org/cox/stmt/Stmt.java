@@ -6,6 +6,7 @@ import lombok.ToString;
 import org.cox.anno.Describe;
 import org.cox.expr.Expr;
 import org.cox.token.Token;
+import org.cox.utils.Pair;
 import org.cox.visitor.StmtVisitor;
 
 import java.util.List;
@@ -65,6 +66,20 @@ public abstract class Stmt {
         @Override
         public void execute(StmtVisitor visitor) {
             visitor.visitBlock(this);
+        }
+    }
+
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("IF语句")
+    public static class IF extends Stmt{
+        private List<Pair<Expr, Stmt>> ifList;
+        private Stmt elseStmt;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitIF(this);
         }
     }
 }

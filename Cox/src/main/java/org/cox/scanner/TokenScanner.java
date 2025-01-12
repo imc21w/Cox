@@ -42,6 +42,7 @@ public class TokenScanner {
         keywords.put("true",   TokenType.TRUE);
         keywords.put("let",    TokenType.LET);
         keywords.put("while",  TokenType.WHILE);
+        keywords.put("when",  TokenType.WHEN);
     }
 
     private TokenScanner(String source) {

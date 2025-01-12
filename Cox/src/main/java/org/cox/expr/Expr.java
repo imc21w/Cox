@@ -95,4 +95,32 @@ public abstract class Expr {
             return visitor.visitAssign(this);
         }
     }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("or")
+    @ToString
+    public static class Or extends Expr {
+        final Expr left;
+        final Expr right;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitOr(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("and")
+    @ToString
+    public static class And extends Expr {
+        final Expr left;
+        final Expr right;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitAnd(this);
+        }
+    }
 }

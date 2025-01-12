@@ -4,6 +4,7 @@ import org.cox.env.Environment;
 import org.cox.expr.Expr;
 import org.cox.stmt.Stmt;
 import org.cox.utils.Cox;
+import org.cox.utils.Pair;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -170,5 +171,47 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
         Environment inner = new Environment(this.environment);
         EvaluateVisitor visitor = new EvaluateVisitor(inner);
         block.getStmts().forEach(m -> m.execute(visitor));
+    }
+
+    @Override
+    public void visitIF(Stmt.IF anIf) {
+        for (Pair<Expr, Stmt> exprStmtPair : anIf.getIfList()) {
+            Object execute = exprStmtPair.getFirst().execute(this);
+            
+            if (isTrue(execute)) {
+                exprStmtPair.getSecond().execute(this);
+                return;
+            }
+        }
+
+        if (anIf.getElseStmt() != null){
+            anIf.getElseStmt().execute(this);
+        }
+    }
+
+    @Override
+    public Object visitOr(Expr.Or or) {
+        Object val = or.getLeft().execute(this);
+
+        if (isTrue(val)) {
+            return val;
+        }
+
+        return or.getRight().execute(this);
+    }
+
+    @Override
+    public Object visitAnd(Expr.And and) {
+        Object val = and.getLeft().execute(this);
+
+        if (isTrue(val)) {
+            return and.getRight().execute(this);
+        }
+
+        return val;
+    }
+
+    private boolean isTrue(Object val){
+        return val instanceof Boolean && (Boolean) val;
     }
 }
