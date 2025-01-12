@@ -17,8 +17,6 @@ public class Cox {
     public static void run(String source) {
         List<Token> tokens = TokenScanner.readTokens(source);
         TreeBuilder treeBuilder = new TreeBuilder(tokens);
-        List<Stmt> stmtList = treeBuilder.parse();
-        EvaluateVisitor visitor = new EvaluateVisitor();
-        stmtList.forEach(e -> e.execute(visitor));
+        treeBuilder.parse().execute(new EvaluateVisitor());
     }
 }

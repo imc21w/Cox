@@ -6,6 +6,7 @@ import lombok.ToString;
 import org.cox.anno.Describe;
 import org.cox.expr.Expr;
 import org.cox.token.Token;
+import org.cox.token.TokenType;
 import org.cox.utils.Pair;
 import org.cox.visitor.StmtVisitor;
 
@@ -80,6 +81,48 @@ public abstract class Stmt {
         @Override
         public void execute(StmtVisitor visitor) {
             visitor.visitIF(this);
+        }
+    }
+
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("while语句")
+    public static class While extends Stmt{
+        private Stmt startStmt;   // for用
+        private Expr conditionExpr;
+        private Stmt bodyStmt;
+        private Expr upExpr;        // for用
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitWhile(this);
+        }
+    }
+
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("continue语句")
+    public static class Continue extends Stmt{
+        private Token con;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitContinue(this);
+        }
+    }
+
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("Break语句")
+    public static class Break extends Stmt{
+        private Token br;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitBreak(this);
         }
     }
 }

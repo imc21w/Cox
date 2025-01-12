@@ -42,7 +42,9 @@ public class TokenScanner {
         keywords.put("true",   TokenType.TRUE);
         keywords.put("let",    TokenType.LET);
         keywords.put("while",  TokenType.WHILE);
-        keywords.put("when",  TokenType.WHEN);
+        keywords.put("when",   TokenType.WHEN);
+        keywords.put("break",  TokenType.BREAK);
+        keywords.put("continue", TokenType.CONTINUE);
     }
 
     private TokenScanner(String source) {
@@ -123,6 +125,7 @@ public class TokenScanner {
             case '+': addToken(TokenType.PLUS); break;
             case ';': addToken(TokenType.LINE_END); break;
             case '*': addToken(TokenType.STAR); break;
+            case '%': addToken(TokenType.MODE); break;
             case '!':
                 addToken(match('=') ? TokenType.BANG_EQUAL : TokenType.BANG);
                 break;

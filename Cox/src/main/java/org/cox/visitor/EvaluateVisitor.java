@@ -3,14 +3,22 @@ package org.cox.visitor;
 import org.cox.env.Environment;
 import org.cox.expr.Expr;
 import org.cox.stmt.Stmt;
+import org.cox.token.Token;
+import org.cox.token.TokenType;
 import org.cox.utils.Cox;
 import org.cox.utils.Pair;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Map;
+
 public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
 
     Environment environment = null;
+
+    private static final Token CONTINUE_TOKEN = new Token(null, "continue", null, -1);
+    private static final Token BREAK_TOKEN = new Token(null, "break", null, -1);
+    private static final Token WHILE_TOKEN = new Token(null, "while", null, -1);
 
     public EvaluateVisitor(Environment env) {
         this.environment = env;
@@ -89,6 +97,12 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
 
             case EQUAL_EQUAL:
                 return left.equals(right);
+
+            case MODE:
+                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                    return ((BigDecimal) left).remainder(((BigDecimal) right));
+                Cox.error(expr.getOperator().getLine(), "无效的 MODE");
+                break;
         }
 
         Cox.error(expr.getOperator().getLine(), "无效的Binary");
@@ -169,8 +183,33 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
     @Override
     public void visitBlock(Stmt.Block block) {
         Environment inner = new Environment(this.environment);
+        Environment whileEnv = this.environment.findEnvForContainKey(WHILE_TOKEN);
         EvaluateVisitor visitor = new EvaluateVisitor(inner);
-        block.getStmts().forEach(m -> m.execute(visitor));
+        for (Stmt stmt : block.getStmts()) {
+
+            // 如果已经有标记了，跳过
+            if (whileEnv != null && !whileEnv.get(WHILE_TOKEN).equals("")) {
+                return;
+            }
+
+            stmt.execute(visitor);
+
+            if (inner.isDefined(CONTINUE_TOKEN)){
+                if (whileEnv == null){
+                    Cox.error(((Stmt.Continue) stmt).getCon().getLine(), "continue 必须定义在循环语句中");
+                }
+                whileEnv.set(WHILE_TOKEN, CONTINUE_TOKEN.getLexeme());
+                return;
+            }
+
+            if (inner.isDefined(BREAK_TOKEN)){
+                if (whileEnv == null){
+                    Cox.error(((Stmt.Break) stmt).getBr().getLine(), "break 必须定义在循环语句中");
+                }
+                whileEnv.set(WHILE_TOKEN, BREAK_TOKEN.getLexeme());
+                return;
+            }
+        }
     }
 
     @Override
@@ -213,5 +252,47 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
 
     private boolean isTrue(Object val){
         return val instanceof Boolean && (Boolean) val;
+    }
+
+    @Override
+    public void visitWhile(Stmt.While aWhile) {
+        if (aWhile.getStartStmt() != null)
+            aWhile.getStartStmt().execute(this);
+
+        // 定义while
+        this.environment.defineCurrent(WHILE_TOKEN, "");
+
+        while (isTrue(aWhile.getConditionExpr().execute(this))){
+            aWhile.getBodyStmt().execute(this);
+
+            Object o = this.environment.get(WHILE_TOKEN);
+
+            if (o.equals(CONTINUE_TOKEN.getLexeme())){
+                this.environment.set(WHILE_TOKEN, "");
+                if (aWhile.getUpExpr() != null)
+                    aWhile.getUpExpr().execute(this);
+                continue;
+            }
+
+            if (o.equals(BREAK_TOKEN.getLexeme())){
+                this.environment.set(WHILE_TOKEN, "");
+                break;
+            }
+
+            if (aWhile.getUpExpr() != null)
+                aWhile.getUpExpr().execute(this);
+        }
+
+        this.environment.remove(WHILE_TOKEN);
+    }
+
+    @Override
+    public void visitContinue(Stmt.Continue aContinue) {
+        this.environment.define(CONTINUE_TOKEN, true);
+    }
+
+    @Override
+    public void visitBreak(Stmt.Break aBreak) {
+        this.environment.define(BREAK_TOKEN, true);
     }
 }

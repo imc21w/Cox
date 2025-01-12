@@ -27,6 +27,13 @@ public class Environment {
         env.put(name.getLexeme(), value);
     }
 
+    public void defineCurrent(Token name, Object value) {
+        if (env.containsKey(name.getLexeme()))
+            Cox.error(name.getLine(), "变量" + name.getLexeme() + "不能重复定义");
+
+        env.put(name.getLexeme(), value);
+    }
+
     public boolean isDefined(final Token name) {
         if (env.containsKey(name.getLexeme()))
             return true;
@@ -35,6 +42,16 @@ public class Environment {
             return parent.isDefined(name);
 
         return false;
+    }
+
+    public Environment findEnvForContainKey(final Token name) {
+        if (env.containsKey(name.getLexeme()))
+            return this;
+
+        if (parent != null)
+            return parent.findEnvForContainKey(name);
+
+        return null;
     }
 
     public Object get(Token name) {
@@ -60,5 +77,9 @@ public class Environment {
         Cox.error(name.getLine(), "变量" + name.getLexeme() + "未定义");
 
         return null;
+    }
+
+    public Object remove(Token endToken) {
+        return this.env.remove(endToken.getLexeme());
     }
 }

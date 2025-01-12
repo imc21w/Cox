@@ -18,7 +18,8 @@ import java.util.List;
  * logic_and      -> equality ("and" equality) *
  * equality       -> comparison ( ( "!=" | "==" ) comparison )* ;
  * comparison     -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
- * term           -> factor ( ( "-" | "+" ) factor )* ;
+ * term           -> mode ( ( "-" | "+" ) mode )* ;
+ * mode           -> factor ("%" factor)?;
  * factor         -> unary ( ( "/" | "*" ) unary )* ;
  * unary          -> ( "!" | "-" ) unary
  *                | primary ;
@@ -27,7 +28,9 @@ import java.util.List;
  */
 
 /**
- * stmt           -> expressionStmt | print | let | block
+ * stmt           -> expressionStmt | print | let | block | if | while
+ * if             -> "(" expression ")" stmt ("when" "(" expression ")" stmt)* ("else" stmt)?
+ * while          -> "(" expression ")" stmt
  * block          -> "{" stmt* "}"
  * let            -> "let" identifier ( "=" expression ) ?
  * print          -> "print" expression ";"
@@ -42,14 +45,14 @@ public class TreeBuilder {
         this.tokens = tokens;
     }
 
-    public List<Stmt> parse(){
+    public Stmt parse(){
         List<Stmt> stmts = new ArrayList<>();
 
         while (!isAtEnd()){
             stmts.add(stmt());
         }
 
-        return stmts;
+        return new Stmt.Block(stmts);
     }
 
     private Stmt stmt() {
@@ -68,12 +71,34 @@ public class TreeBuilder {
 
             case LEFT_BRACE: {
                 advance();
-                return buildLetBlock();
+                return buildBlock();
             }
 
             case IF: {
                 advance();
-                return buildLetIF();
+                return buildIF();
+            }
+
+            case WHILE: {
+                advance();
+                return buildWhile();
+            }
+
+            case FOR: {
+                advance();
+                return buildFor();
+            }
+
+            case CONTINUE: {
+                advance();
+                Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+                return new Stmt.Continue(token);
+            }
+
+            case BREAK: {
+                advance();
+                Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+                return new Stmt.Break(token);
             }
 
             default:
@@ -81,7 +106,43 @@ public class TreeBuilder {
         }
     }
 
-    private Stmt buildLetIF() {
+    private Stmt buildFor() {
+        Assert(TokenType.LEFT_PAREN, "for 后必须接括号");
+
+        Stmt startStmt = null; // 初始条件
+
+        if (match(TokenType.LET)){
+            startStmt = buildLetStmt();
+        }else if (!match(TokenType.LINE_END)){
+            startStmt = new Stmt.Expression(expression());
+            Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+        }
+        Expr condition = new Expr.Literal(true);
+        if (!match(TokenType.LINE_END)){
+            condition = expression();
+            Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+        }
+        Expr expr = new Expr.Literal(true);
+        if (!match(TokenType.RIGHT_PAREN)){
+            expr = expression();
+            Assert(TokenType.RIGHT_PAREN, "for 的括号表达式未闭合");
+        }
+        Stmt bodyStmt = new Stmt.Block(List.of(stmt()));
+
+        return new Stmt.While(startStmt, condition, bodyStmt, expr);
+
+    }
+
+    private Stmt buildWhile() {
+        Assert(TokenType.LEFT_PAREN, "while 后必须接括号");
+        Expr expr = expression();
+        Assert(TokenType.RIGHT_PAREN, "while 的括号表达式未闭合");
+        Stmt stmt = new Stmt.Block(List.of(stmt()));
+
+        return new Stmt.While(null, expr, stmt, null);
+    }
+
+    private Stmt buildIF() {
         Assert(TokenType.LEFT_PAREN, "if 后必须接括号");
         Expr expr = expression();
         Assert(TokenType.RIGHT_PAREN, "if 的括号表达式未闭合");
@@ -89,24 +150,24 @@ public class TreeBuilder {
         Stmt elseStmt = null;
 
         List<Pair<Expr, Stmt>> ifList = new ArrayList<>();
-        ifList.add(Pair.of(expr, stmt));
+        ifList.add(Pair.of(expr, new Stmt.Block(List.of(stmt))));
 
         while (match(TokenType.WHEN)){
             Assert(TokenType.LEFT_PAREN, "if 后必须接括号");
             Expr expr1 = expression();
             Assert(TokenType.RIGHT_PAREN, "if 的括号表达式未闭合");
             Stmt stmt1 = stmt();
-            ifList.add(Pair.of(expr1, stmt1));
+            ifList.add(Pair.of(expr1, new Stmt.Block(List.of(stmt1))));
         }
 
         if (match(TokenType.ELSE)){
-            elseStmt = stmt();
+            elseStmt = new Stmt.Block(List.of(stmt()));
         }
 
         return new Stmt.IF(ifList, elseStmt);
     }
 
-    private Stmt buildLetBlock() {
+    private Stmt buildBlock() {
         List<Stmt> stmts = new ArrayList<>();
 
         while (!isAtEnd() && !check(TokenType.RIGHT_BRACE)){
@@ -208,9 +269,22 @@ public class TreeBuilder {
     }
 
     private Expr term() {
-        Expr left = factor();
+        Expr left = mode();
 
         while (match(TokenType.PLUS, TokenType.MINUS)){
+            Token token = previous();
+            Expr right = mode();
+
+            left = new Expr.Binary(left, token, right);
+        }
+
+        return left;
+    }
+
+    private Expr mode() {
+        Expr left = factor();
+
+        while (match(TokenType.MODE)){
             Token token = previous();
             Expr right = factor();
 

@@ -12,4 +12,10 @@ public interface StmtVisitor {
     void visitBlock(Stmt.Block block);
 
     void visitIF(Stmt.IF anIf);
+
+    void visitWhile(Stmt.While aWhile);
+
+    void visitContinue(Stmt.Continue aContinue);
+
+    void visitBreak(Stmt.Break aBreak);
 }
