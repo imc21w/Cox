@@ -18,4 +18,8 @@ public interface StmtVisitor {
     void visitContinue(Stmt.Continue aContinue);
 
     void visitBreak(Stmt.Break aBreak);
+
+    void visitFun(Stmt.Fun fun);
+
+    void visitReturn(Stmt.Return aReturn);
 }

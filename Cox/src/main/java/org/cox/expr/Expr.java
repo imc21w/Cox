@@ -8,6 +8,8 @@ import org.cox.anno.Describe;
 import org.cox.token.Token;
 import org.cox.visitor.ExprVisitor;
 
+import java.util.List;
+
 // 表达式
 public abstract class Expr {
 
@@ -121,6 +123,21 @@ public abstract class Expr {
         @Override
         public Object execute(ExprVisitor visitor) {
             return visitor.visitAnd(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("call")
+    @ToString
+    public static class Call extends Expr {
+        final Expr method;
+        final Token paren;  // 右括号，用来定位
+        final List<Expr> arguments;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitCall(this);
         }
     }
 }

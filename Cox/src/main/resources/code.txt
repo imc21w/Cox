@@ -9,3 +9,23 @@ for (let i = 0; i < 10 ; i = i+1){
         print "i = " + i + " & j = " + j;
     }
 }
+
+fun get(a, c){
+    return a + b + "c";
+}
+
+fun count(){
+    let c = 1;
+
+    fun add(){
+        c = c+1;
+        print c;
+    }
+
+    return add;
+}
+
+
+let oo = count()();
+print "当前时间: " + time() + "___" + get(1, 2);
+

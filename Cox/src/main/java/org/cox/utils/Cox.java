@@ -1,9 +1,8 @@
 package org.cox.utils;
 
 import org.cox.builder.TreeBuilder;
-import org.cox.expr.Expr;
+import org.cox.error.TouchTopException;
 import org.cox.scanner.TokenScanner;
-import org.cox.stmt.Stmt;
 import org.cox.token.Token;
 import org.cox.visitor.EvaluateVisitor;
 
@@ -19,4 +18,9 @@ public class Cox {
         TreeBuilder treeBuilder = new TreeBuilder(tokens);
         treeBuilder.parse().execute(new EvaluateVisitor());
     }
+
+    public static void touchTop(Token token){
+        throw new TouchTopException(token);
+    }
+
 }

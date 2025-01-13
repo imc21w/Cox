@@ -19,4 +19,6 @@ public interface ExprVisitor {
     Object visitOr(Expr.Or or);
 
     Object visitAnd(Expr.And and);
+
+    Object visitCall(Expr.Call call);
 }

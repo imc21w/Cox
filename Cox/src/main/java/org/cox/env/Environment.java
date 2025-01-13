@@ -1,5 +1,6 @@
 package org.cox.env;
 
+import lombok.Getter;
 import org.cox.token.Token;
 import org.cox.utils.Cox;
 
@@ -42,16 +43,6 @@ public class Environment {
             return parent.isDefined(name);
 
         return false;
-    }
-
-    public Environment findEnvForContainKey(final Token name) {
-        if (env.containsKey(name.getLexeme()))
-            return this;
-
-        if (parent != null)
-            return parent.findEnvForContainKey(name);
-
-        return null;
     }
 
     public Object get(Token name) {

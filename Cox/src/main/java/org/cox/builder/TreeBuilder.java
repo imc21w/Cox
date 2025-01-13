@@ -22,13 +22,17 @@ import java.util.List;
  * mode           -> factor ("%" factor)?;
  * factor         -> unary ( ( "/" | "*" ) unary )* ;
  * unary          -> ( "!" | "-" ) unary
- *                | primary ;
+ *                | call ;
+ * call           -> primary ("(" param? ")") *
+ * param          -> expression ( "," expression)*
  * primary        -> NUMBER | STRING | "true" | "false" | "null"
  *                | "(" expression ")" | identifier ;
  */
 
 /**
- * stmt           -> expressionStmt | print | let | block | if | while
+ * stmt           -> expressionStmt | print | let | block | if | while | fun
+ * fun            -> "fun" identifier "(" params? ")" block
+ * params         -> identifier ("," identifier)*
  * if             -> "(" expression ")" stmt ("when" "(" expression ")" stmt)* ("else" stmt)?
  * while          -> "(" expression ")" stmt
  * block          -> "{" stmt* "}"
@@ -101,9 +105,62 @@ public class TreeBuilder {
                 return new Stmt.Break(token);
             }
 
+            case FUN: {
+                advance();
+                return buildFun();
+            }
+
+            case RETURN: {
+                advance();
+                return buildReturn();
+            }
+
             default:
                 return buildExprStmt();
         }
+    }
+
+    private Stmt buildReturn() {
+        Token token = previous();
+        Expr expr = new Expr.Literal(null);
+        if (!check(TokenType.LINE_END))
+            expr = expression();
+        Stmt.Return aReturn = new Stmt.Return(token, expr);
+        Assert(TokenType.LINE_END, "语句必须以 ; 结尾");
+        return aReturn;
+    }
+
+    private Stmt buildFun() {
+        Token method = advance();
+        if (method.getType() != TokenType.IDENTIFIER){
+            Cox.error(method.getLine(), "方法名定义错误");
+        }
+
+        List<Token> params = new ArrayList<>();
+
+        advance();
+
+        if (match(TokenType.LEFT_PAREN))
+            Cox.error(previous().getLine(), "定义方法后面必须有左括号");
+
+        if (!check(TokenType.RIGHT_PAREN)){
+            do {
+                params.add(advance());
+            }while (match(TokenType.COMMA));
+        }
+
+        if (params.size() >= 1 << 6)
+            Cox.error(previous().getLine(), "方法参数最多支持126");
+
+        Assert(TokenType.RIGHT_PAREN, "定义方法后面必须有右括号");
+
+        Stmt stmt = stmt();
+
+        if (!(stmt instanceof Stmt.Block)){
+            Cox.error(previous().getLine(), "非法的函数体格式");
+        }
+
+        return new Stmt.Fun(method, params, ((Stmt.Block) stmt));
     }
 
     private Stmt buildFor() {
@@ -316,7 +373,41 @@ public class TreeBuilder {
             return new Expr.Unary(token, right);
         }
         
-        return primary();
+        return call();
+    }
+
+    private Expr call() {
+
+        Expr expr = primary();
+
+        while (true){
+
+            if (match(TokenType.LEFT_PAREN)){
+                expr = callImpl(expr);
+                continue;
+            }
+
+            break;
+        }
+
+        return expr;
+    }
+
+    private Expr callImpl(Expr expr) {
+        List<Expr> arguments = new ArrayList<>();
+        if (!check(TokenType.RIGHT_PAREN)){
+            do {
+
+                if (arguments.size() >= 2 << 6)
+                    Cox.error(peek().getLine(), "方法的参数最多127");
+
+                arguments.add(expression());
+            } while (match(TokenType.COMMA));
+        }
+
+        Assert(TokenType.RIGHT_PAREN, "方法调用缺失右括号");
+
+        return new Expr.Call(expr, previous(), arguments);
     }
 
     private Expr primary() {

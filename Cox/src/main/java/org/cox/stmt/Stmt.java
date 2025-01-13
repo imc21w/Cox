@@ -8,6 +8,7 @@ import org.cox.expr.Expr;
 import org.cox.token.Token;
 import org.cox.token.TokenType;
 import org.cox.utils.Pair;
+import org.cox.visitor.ExprVisitor;
 import org.cox.visitor.StmtVisitor;
 
 import java.util.List;
@@ -123,6 +124,35 @@ public abstract class Stmt {
         @Override
         public void execute(StmtVisitor visitor) {
             visitor.visitBreak(this);
+        }
+    }
+
+    @AllArgsConstructor
+    @ToString
+    @Getter
+    @Describe("fun语句")
+    public static class Fun extends Stmt{
+        private Token method;
+        private List<Token> params;
+        private Block bodyStmt;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitFun(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("Return")
+    @ToString
+    public static class Return extends Stmt {
+        final Token returnToken;    // 记录位置用
+        final Expr expr;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitReturn(this);
         }
     }
 }

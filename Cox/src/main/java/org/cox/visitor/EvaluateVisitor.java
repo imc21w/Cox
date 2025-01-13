@@ -1,7 +1,10 @@
 package org.cox.visitor;
 
+import org.cox.call.Callable;
 import org.cox.env.Environment;
+import org.cox.error.TouchTopException;
 import org.cox.expr.Expr;
+import org.cox.start.StartUp;
 import org.cox.stmt.Stmt;
 import org.cox.token.Token;
 import org.cox.token.TokenType;
@@ -10,23 +13,20 @@ import org.cox.utils.Pair;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Map;
+import java.util.List;
+import java.util.stream.Collectors;
 
-public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
+public class EvaluateVisitor implements IntegrationVisitor{
 
-    Environment environment = null;
+    final Environment globals = StartUp.prepareFoundationEnv();
 
-    private static final Token CONTINUE_TOKEN = new Token(null, "continue", null, -1);
-    private static final Token BREAK_TOKEN = new Token(null, "break", null, -1);
-    private static final Token WHILE_TOKEN = new Token(null, "while", null, -1);
+    Environment environment = this.globals;
 
     public EvaluateVisitor(Environment env) {
         this.environment = env;
     }
 
-    public EvaluateVisitor() {
-        this(new Environment());
-    }
+    public EvaluateVisitor() {}
 
     @Override
     public Object visitBinary(Expr.Binary expr) {
@@ -170,7 +170,8 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
 
     @Override
     public Object visitVariable(Expr.Variable variable) {
-        return environment.get(variable.getName());
+        Object o = environment.get(variable.getName());
+        return o;
     }
 
     @Override
@@ -183,32 +184,9 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
     @Override
     public void visitBlock(Stmt.Block block) {
         Environment inner = new Environment(this.environment);
-        Environment whileEnv = this.environment.findEnvForContainKey(WHILE_TOKEN);
         EvaluateVisitor visitor = new EvaluateVisitor(inner);
         for (Stmt stmt : block.getStmts()) {
-
-            // 如果已经有标记了，跳过
-            if (whileEnv != null && !whileEnv.get(WHILE_TOKEN).equals("")) {
-                return;
-            }
-
             stmt.execute(visitor);
-
-            if (inner.isDefined(CONTINUE_TOKEN)){
-                if (whileEnv == null){
-                    Cox.error(((Stmt.Continue) stmt).getCon().getLine(), "continue 必须定义在循环语句中");
-                }
-                whileEnv.set(WHILE_TOKEN, CONTINUE_TOKEN.getLexeme());
-                return;
-            }
-
-            if (inner.isDefined(BREAK_TOKEN)){
-                if (whileEnv == null){
-                    Cox.error(((Stmt.Break) stmt).getBr().getLine(), "break 必须定义在循环语句中");
-                }
-                whileEnv.set(WHILE_TOKEN, BREAK_TOKEN.getLexeme());
-                return;
-            }
         }
     }
 
@@ -259,40 +237,84 @@ public class EvaluateVisitor implements ExprVisitor, StmtVisitor{
         if (aWhile.getStartStmt() != null)
             aWhile.getStartStmt().execute(this);
 
-        // 定义while
-        this.environment.defineCurrent(WHILE_TOKEN, "");
-
         while (isTrue(aWhile.getConditionExpr().execute(this))){
-            aWhile.getBodyStmt().execute(this);
-
-            Object o = this.environment.get(WHILE_TOKEN);
-
-            if (o.equals(CONTINUE_TOKEN.getLexeme())){
-                this.environment.set(WHILE_TOKEN, "");
-                if (aWhile.getUpExpr() != null)
-                    aWhile.getUpExpr().execute(this);
-                continue;
-            }
-
-            if (o.equals(BREAK_TOKEN.getLexeme())){
-                this.environment.set(WHILE_TOKEN, "");
-                break;
+            try{
+                aWhile.getBodyStmt().execute(this);
+            }catch (TouchTopException e){
+                if (e.getToken().getType() == TokenType.BREAK)
+                    return;
             }
 
             if (aWhile.getUpExpr() != null)
                 aWhile.getUpExpr().execute(this);
         }
-
-        this.environment.remove(WHILE_TOKEN);
     }
 
     @Override
     public void visitContinue(Stmt.Continue aContinue) {
-        this.environment.define(CONTINUE_TOKEN, true);
+        Cox.touchTop(aContinue.getCon());
     }
 
     @Override
     public void visitBreak(Stmt.Break aBreak) {
-        this.environment.define(BREAK_TOKEN, true);
+        Cox.touchTop(aBreak.getBr());
+    }
+
+    @Override
+    public Object visitCall(Expr.Call call) {
+        Expr method = call.getMethod();
+        List<Object> args = call.getArguments().stream().map(e -> e.execute(this)).collect(Collectors.toList());
+
+        Object execute = method.execute(this);
+
+        if (!(execute instanceof Callable))
+            Cox.error(call.getParen().getLine(), "无效的方法名");
+
+        Callable callable = (Callable) execute;
+
+        if (callable.getArgsCount() != args.size())
+            Cox.error(call.getParen().getLine(), "方法入参数量不对");
+
+        return callable.call(this, args);
+    }
+
+    @Override
+    public void visitFun(Stmt.Fun fun) {
+        environment.define(fun.getMethod(), new Callable() {
+            @Override
+            public int getArgsCount() {
+                return fun.getParams().size();
+            }
+
+            @Override
+            public Object call(IntegrationVisitor visitor, List<Object> args) {
+                try{
+                    EvaluateVisitor innerVisitor = new EvaluateVisitor(new Environment(environment));
+
+                    for (int i = 0; i < fun.getParams().size(); i++) {
+                        innerVisitor.environment.defineCurrent(fun.getParams().get(i), args.get(i));
+                    }
+
+                    fun.getBodyStmt().execute(innerVisitor);
+                }catch (TouchTopException e){
+                    if (e.getToken().getType() == TokenType.RETURN){
+                        return e.getToken().getLiteral();
+                    }
+                    throw e;
+                }
+                return null;
+            }
+
+            @Override
+            public String toString() {
+                return "<Cox method: " + fun.getMethod().getLexeme() + ">";
+            }
+        });
+    }
+
+    @Override
+    public void visitReturn(Stmt.Return aReturn) {
+        Token token = new Token(TokenType.RETURN, "return", aReturn.getExpr().execute(this), aReturn.getReturnToken().getLine());
+        Cox.touchTop(token);
     }
 }
