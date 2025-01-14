@@ -380,14 +380,8 @@ public class TreeBuilder {
 
         Expr expr = primary();
 
-        while (true){
-
-            if (match(TokenType.LEFT_PAREN)){
-                expr = callImpl(expr);
-                continue;
-            }
-
-            break;
+        while (match(TokenType.LEFT_PAREN)){
+            expr = callImpl(expr);
         }
 
         return expr;

@@ -170,8 +170,7 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public Object visitVariable(Expr.Variable variable) {
-        Object o = environment.get(variable.getName());
-        return o;
+        return environment.get(variable.getName());
     }
 
     @Override
