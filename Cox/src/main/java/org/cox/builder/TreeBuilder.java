@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * expression     -> assign ;
- * assign         -> identifier "=" logic_or | logic_or;
+ * assign         -> call "=" logic_or | logic_or;
  * logic_or       -> logic_and ("or" logic_and) *
  * logic_and      -> equality ("and" equality) *
  * equality       -> comparison ( ( "!=" | "==" ) comparison )* ;
@@ -23,14 +23,15 @@ import java.util.List;
  * factor         -> unary ( ( "/" | "*" ) unary )* ;
  * unary          -> ( "!" | "-" ) unary
  *                | call ;
- * call           -> primary ("(" param? ")") *
+ * call           -> primary ("(" param? ")" | "." identifier ) *
  * param          -> expression ( "," expression)*
  * primary        -> NUMBER | STRING | "true" | "false" | "null"
  *                | "(" expression ")" | identifier ;
  */
 
 /**
- * stmt           -> expressionStmt | print | let | block | if | while | fun
+ * stmt           -> expressionStmt | print | let | block | if | while | fun | struct
+ * struct         -> "struct" identifier "{" fun* "}"
  * fun            -> "fun" identifier "(" params? ")" block
  * params         -> identifier ("," identifier)*
  * if             -> "(" expression ")" stmt ("when" "(" expression ")" stmt)* ("else" stmt)?
@@ -110,14 +111,48 @@ public class TreeBuilder {
                 return buildFun();
             }
 
+            case STATIC: {
+                advance();
+                return buildFun();
+            }
+
             case RETURN: {
                 advance();
                 return buildReturn();
             }
 
+            case STRUCT: {
+                advance();
+                return buildStruct();
+            }
+
             default:
                 return buildExprStmt();
         }
+    }
+
+    private Stmt buildStruct() {
+        Assert(TokenType.IDENTIFIER, "结构体定义后面必须有 名字");
+        Token structName = previous();
+        Token parent = null;
+        // 继承
+        if (match(TokenType.EXTENDS)){
+            Assert(TokenType.IDENTIFIER, "继承格式错误");
+            parent = previous();
+        }
+
+        Assert(TokenType.LEFT_BRACE, "结构体定义后面必须有 {");
+        List<Stmt.Fun> funList = new ArrayList<>();
+        while (!check(TokenType.RIGHT_BRACE)){
+            Token token = advance();
+            if (token.getType() != TokenType.FUN && token.getType() != TokenType.STATIC){
+                Cox.error(token.getLine(), "结构体内只能定义函数");
+            }
+            Stmt stmt = buildFun();
+            funList.add(((Stmt.Fun) stmt));
+        }
+        Assert(TokenType.RIGHT_BRACE, "结构体定义必须以 } 结束");
+        return new Stmt.Struct(structName, parent, funList);
     }
 
     private Stmt buildReturn() {
@@ -131,6 +166,15 @@ public class TreeBuilder {
     }
 
     private Stmt buildFun() {
+
+        Token type = null;
+
+        if (previous().getType() == TokenType.STATIC) {
+            type = previous();
+
+            Assert(TokenType.FUN, "static 关键字只能标识方法");
+        }
+
         Token method = advance();
         if (method.getType() != TokenType.IDENTIFIER){
             Cox.error(method.getLine(), "方法名定义错误");
@@ -160,7 +204,7 @@ public class TreeBuilder {
             Cox.error(previous().getLine(), "非法的函数体格式");
         }
 
-        return new Stmt.Fun(method, params, ((Stmt.Block) stmt));
+        return new Stmt.Fun(type, method, params, ((Stmt.Block) stmt));
     }
 
     private Stmt buildFor() {
@@ -184,9 +228,11 @@ public class TreeBuilder {
             expr = expression();
             Assert(TokenType.RIGHT_PAREN, "for 的括号表达式未闭合");
         }
-        Stmt bodyStmt = new Stmt.Block(List.of(stmt()));
+        Stmt stmt = stmt();
+        if (!(stmt instanceof Stmt.Block))
+            stmt = new Stmt.Block(List.of(stmt));
 
-        return new Stmt.While(startStmt, condition, bodyStmt, expr);
+        return new Stmt.While(startStmt, condition, stmt, expr);
 
     }
 
@@ -194,7 +240,10 @@ public class TreeBuilder {
         Assert(TokenType.LEFT_PAREN, "while 后必须接括号");
         Expr expr = expression();
         Assert(TokenType.RIGHT_PAREN, "while 的括号表达式未闭合");
-        Stmt stmt = new Stmt.Block(List.of(stmt()));
+
+        Stmt stmt = stmt();
+        if (!(stmt instanceof Stmt.Block))
+            stmt = new Stmt.Block(List.of(stmt));
 
         return new Stmt.While(null, expr, stmt, null);
     }
@@ -214,11 +263,15 @@ public class TreeBuilder {
             Expr expr1 = expression();
             Assert(TokenType.RIGHT_PAREN, "if 的括号表达式未闭合");
             Stmt stmt1 = stmt();
-            ifList.add(Pair.of(expr1, new Stmt.Block(List.of(stmt1))));
+            if (!(stmt1 instanceof Stmt.Block))
+                stmt1 = new Stmt.Block(List.of(stmt1));
+            ifList.add(Pair.of(expr1, stmt1));
         }
 
         if (match(TokenType.ELSE)){
-            elseStmt = new Stmt.Block(List.of(stmt()));
+            elseStmt = stmt();
+            if (!(elseStmt instanceof Stmt.Block))
+                elseStmt = new Stmt.Block(List.of(elseStmt));
         }
 
         return new Stmt.IF(ifList, elseStmt);
@@ -270,8 +323,15 @@ public class TreeBuilder {
         Expr expr = logicOr();
 
         if (match(TokenType.EQUAL)){
-            Expr equality = logicOr();
-            return new Expr.Assign(((Expr.Variable) expr).getName(), equality);
+            Expr equality = assign();
+
+            if (expr instanceof Expr.Variable)
+                return new Expr.Assign(((Expr.Variable) expr).getName(), equality);
+
+            if (expr instanceof Expr.Get) {
+                Expr.Get get = (Expr.Get) expr;
+                return new Expr.Set(get.getExpr(), get.getName(), equality);
+            }
         }
 
         return expr;
@@ -380,11 +440,27 @@ public class TreeBuilder {
 
         Expr expr = primary();
 
-        while (match(TokenType.LEFT_PAREN)){
-            expr = callImpl(expr);
+        while (true){
+            if (match(TokenType.LEFT_PAREN)){
+                expr = callImpl(expr);
+                continue;
+            }
+
+            if (match(TokenType.DOT)){
+                expr = dotImpl(expr);
+                continue;
+            }
+
+            break;
         }
 
+
         return expr;
+    }
+
+    private Expr dotImpl(Expr expr) {
+        Assert(TokenType.IDENTIFIER, ". 表达式后面只能接变量");
+        return new Expr.Get(expr, previous());
     }
 
     private Expr callImpl(Expr expr) {
@@ -421,12 +497,14 @@ public class TreeBuilder {
                 return new Expr.Literal(false);
             case IDENTIFIER:
                 return new Expr.Variable(token);
+            case THIS:
+                return new Expr.This(token);
             case LEFT_PAREN:
                 Expr expr = expression();
                 Assert(TokenType.RIGHT_PAREN, "必须有匹配的右括号");
                 return new Expr.Grouping(expr);
             default:
-                Cox.error(peek().getLine(), "未知的字符");
+                Cox.error(peek().getLine(), "未知的字符: " + peek().getLexeme());
         }
 
         return null;

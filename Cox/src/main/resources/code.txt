@@ -18,14 +18,48 @@ fun count(){
     let c = 1;
 
     fun add(){
+        let a = 0;
         c = c+1;
         print c;
+        print a;
     }
 
     return add;
 }
 
-
+a = b = 20;
+print a;
 let oo = count()();
 print "当前时间: " + time() + "___" + get(1, 2);
 
+struct Math{
+    fun init(){
+        print 12;
+        return this;
+    }
+
+    static fun count(b){
+        print "count --> " + b;
+        return;
+    }
+
+    static fun look(){
+        print "==========>" + count("c");
+    }
+
+}
+
+let math = Math();
+print math;
+print math.b;
+math.b = count;
+print math.b()();
+math.look();
+math.a = "okok";
+math.look();
+
+Math().init();
+count()();
+
+Math.look();
+math.look();

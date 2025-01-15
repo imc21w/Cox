@@ -22,4 +22,6 @@ public interface StmtVisitor {
     void visitFun(Stmt.Fun fun);
 
     void visitReturn(Stmt.Return aReturn);
+
+    void visitStruct(Stmt.Struct struct);
 }

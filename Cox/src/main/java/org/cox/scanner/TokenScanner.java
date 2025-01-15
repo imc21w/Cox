@@ -27,7 +27,7 @@ public class TokenScanner {
     static {
         keywords = new HashMap<>();
         keywords.put("and",    TokenType.AND);
-        keywords.put("class",  TokenType.CLASS);
+        keywords.put("struct", TokenType.STRUCT);
         keywords.put("else",   TokenType.ELSE);
         keywords.put("false",  TokenType.FALSE);
         keywords.put("for",    TokenType.FOR);
@@ -45,6 +45,8 @@ public class TokenScanner {
         keywords.put("when",   TokenType.WHEN);
         keywords.put("break",  TokenType.BREAK);
         keywords.put("continue", TokenType.CONTINUE);
+        keywords.put("static", TokenType.STATIC);
+        keywords.put("extends",TokenType.EXTENDS);
     }
 
     private TokenScanner(String source) {

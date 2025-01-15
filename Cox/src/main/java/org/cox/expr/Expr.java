@@ -140,4 +140,46 @@ public abstract class Expr {
             return visitor.visitCall(this);
         }
     }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("getXXX方法")
+    @ToString
+    public static class Get extends Expr {
+        final Expr expr;
+        final Token name;   // 最后的属性
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitGet(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("setXXX方法")
+    @ToString
+    public static class Set extends Expr {
+        final Expr prefix;
+        final Token field;
+        final Expr value;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitSet(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("this")
+    @ToString
+    public static class This extends Expr {
+        final Token key;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitThis(this);
+        }
+    }
 }

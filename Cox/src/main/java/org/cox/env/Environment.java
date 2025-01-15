@@ -1,6 +1,7 @@
 package org.cox.env;
 
 import lombok.Getter;
+import org.cox.call.Callable;
 import org.cox.token.Token;
 import org.cox.utils.Cox;
 
@@ -19,6 +20,7 @@ public class Environment {
         this(null);
     }
 
+    @Getter
     private final Map<String, Object> env = new HashMap<>();
 
     public void define(Token name, Object value) {
@@ -33,6 +35,17 @@ public class Environment {
             Cox.error(name.getLine(), "变量" + name.getLexeme() + "不能重复定义");
 
         env.put(name.getLexeme(), value);
+    }
+
+    public void defineCurrent(String name, int line, Object value) {
+        if (env.containsKey(name))
+            Cox.error(line, "变量" + name + "不能重复定义");
+
+        env.put(name, value);
+    }
+
+    public boolean isDefineCurrent(Token name) {
+        return env.containsKey(name.getLexeme());
     }
 
     public boolean isDefined(final Token name) {
@@ -72,5 +85,8 @@ public class Environment {
 
     public Object remove(Token endToken) {
         return this.env.remove(endToken.getLexeme());
+    }
+    public Object remove(String name) {
+        return this.env.remove(name);
     }
 }

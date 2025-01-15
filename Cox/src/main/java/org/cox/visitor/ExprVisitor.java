@@ -21,4 +21,10 @@ public interface ExprVisitor {
     Object visitAnd(Expr.And and);
 
     Object visitCall(Expr.Call call);
+
+    Object visitGet(Expr.Get get);
+
+    Object visitSet(Expr.Set set);
+
+    Object visitThis(Expr.This aThis);
 }

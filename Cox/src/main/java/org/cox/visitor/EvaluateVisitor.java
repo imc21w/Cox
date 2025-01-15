@@ -1,6 +1,8 @@
 package org.cox.visitor;
 
 import org.cox.call.Callable;
+import org.cox.call.Struct;
+import org.cox.call.StructInstance;
 import org.cox.env.Environment;
 import org.cox.error.TouchTopException;
 import org.cox.expr.Expr;
@@ -13,14 +15,17 @@ import org.cox.utils.Pair;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class EvaluateVisitor implements IntegrationVisitor{
 
-    final Environment globals = StartUp.prepareFoundationEnv();
+    final Environment globals = StartUp.prepareFoundationEnv(); // 顶级
 
-    Environment environment = this.globals;
+    Environment environment = globals;
 
     public EvaluateVisitor(Environment env) {
         this.environment = env;
@@ -35,28 +40,43 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
         switch (expr.getOperator().getType()){
             case PLUS:
-                if (left instanceof BigDecimal && right instanceof BigDecimal)
+                if (left == null && right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
+                else if (left instanceof BigDecimal && right instanceof BigDecimal)
                     return ((BigDecimal) left).add(((BigDecimal) right));
-                else if (left instanceof String || right instanceof String)
+                else if (left instanceof String || right instanceof String) {
+                    if (left == null)
+                        return castInt(right).toString();
+                    else if (right == null)
+                        return castInt(left).toString();
                     return castInt(left).toString() + castInt(right).toString();
+                }
+                else if (left instanceof BigDecimal || right instanceof BigDecimal)
+                    return castInt(Objects.requireNonNullElse(left, right));
                 Cox.error(expr.getOperator().getLine(), "无效的 PLUS");
                 break;
 
             case MINUS:
                 if (left instanceof BigDecimal && right instanceof BigDecimal)
                     return ((BigDecimal) left).subtract(((BigDecimal) right));
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 MINUS");
                 break;
 
             case STAR:
                 if (left instanceof BigDecimal && right instanceof BigDecimal)
                     return ((BigDecimal) left).multiply(((BigDecimal) right));
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 STAR");
                 break;
 
             case SLASH:
                 if (left instanceof BigDecimal && right instanceof BigDecimal)
                     return ((BigDecimal) left).divide(((BigDecimal) right), 16, RoundingMode.HALF_UP);
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 SLASH");
                 break;
 
@@ -65,6 +85,8 @@ public class EvaluateVisitor implements IntegrationVisitor{
                     return ((BigDecimal) left).compareTo(((BigDecimal) right)) > 0;
                 else if (left instanceof String && right instanceof String)
                     return ((String) left).compareTo(((String) right)) > 0;
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 GREATER");
                 break;
 
@@ -73,6 +95,8 @@ public class EvaluateVisitor implements IntegrationVisitor{
                     return ((BigDecimal) left).compareTo(((BigDecimal) right)) >= 0;
                 else if (left instanceof String && right instanceof String)
                     return ((String) left).compareTo(((String) right)) >= 0;
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 GREATER_EQUAL");
                 break;
 
@@ -81,6 +105,8 @@ public class EvaluateVisitor implements IntegrationVisitor{
                     return ((BigDecimal) left).compareTo(((BigDecimal) right)) < 0;
                 else if (left instanceof String && right instanceof String)
                     return ((String) left).compareTo(((String) right)) < 0;
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 LESS");
                 break;
 
@@ -89,18 +115,26 @@ public class EvaluateVisitor implements IntegrationVisitor{
                     return ((BigDecimal) left).compareTo(((BigDecimal) right)) <= 0;
                 else if (left instanceof String && right instanceof String)
                     return ((String) left).compareTo(((String) right)) <= 0;
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 LESS_EQUAL");
                 break;
 
             case BANG_EQUAL:
+                if (left == null || right == null)
+                    return false;
                 return !left.equals(right);
 
             case EQUAL_EQUAL:
+                if (left == null || right == null)
+                    return false;
                 return left.equals(right);
 
             case MODE:
                 if (left instanceof BigDecimal && right instanceof BigDecimal)
                     return ((BigDecimal) left).remainder(((BigDecimal) right));
+                else if (left == null || right == null)
+                    Cox.error(expr.getOperator().getLine(), "空指针异常");
                 Cox.error(expr.getOperator().getLine(), "无效的 MODE");
                 break;
         }
@@ -182,10 +216,8 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitBlock(Stmt.Block block) {
-        Environment inner = new Environment(this.environment);
-        EvaluateVisitor visitor = new EvaluateVisitor(inner);
         for (Stmt stmt : block.getStmts()) {
-            stmt.execute(visitor);
+            stmt.execute(this);
         }
     }
 
@@ -233,19 +265,39 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitWhile(Stmt.While aWhile) {
-        if (aWhile.getStartStmt() != null)
-            aWhile.getStartStmt().execute(this);
-
-        while (isTrue(aWhile.getConditionExpr().execute(this))){
-            try{
-                aWhile.getBodyStmt().execute(this);
-            }catch (TouchTopException e){
-                if (e.getToken().getType() == TokenType.BREAK)
-                    return;
+        Environment env = new Environment(this.environment) {
+            @Override
+            public void define(Token name, Object value) {
+                super.defineCurrent(name, value);
             }
+        };
+        if (aWhile.getStartStmt() != null) {
+            aWhile.getStartStmt().execute(new EvaluateVisitor(env));
+        }
 
-            if (aWhile.getUpExpr() != null)
-                aWhile.getUpExpr().execute(this);
+        int line;
+        if (aWhile.getStartStmt() instanceof Stmt.LET){
+            line = ((Stmt.LET) aWhile.getStartStmt()).getName().getLine();
+        } else {
+            line = -1;
+        }
+
+        env.getEnv().forEach((k,v) -> this.environment.defineCurrent(k, line, v));
+
+        try {
+            while (isTrue(aWhile.getConditionExpr().execute(this))){
+                try{
+                    aWhile.getBodyStmt().execute(this);
+                }catch (TouchTopException e){
+                    if (e.getToken().getType() == TokenType.BREAK)
+                        return;
+                }
+
+                if (aWhile.getUpExpr() != null)
+                    aWhile.getUpExpr().execute(this);
+            }
+        }finally {
+            env.getEnv().forEach((k,v) -> this.environment.remove(k));
         }
     }
 
@@ -279,7 +331,12 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitFun(Stmt.Fun fun) {
-        environment.define(fun.getMethod(), new Callable() {
+        Callable call = getCallable(fun);
+        environment.define(fun.getMethod(), call);
+    }
+
+    private Callable getCallable(Stmt.Fun fun) {
+        return new Callable() {
             @Override
             public int getArgsCount() {
                 return fun.getParams().size();
@@ -287,16 +344,21 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
             @Override
             public Object call(IntegrationVisitor visitor, List<Object> args) {
-                try{
-                    EvaluateVisitor innerVisitor = new EvaluateVisitor(new Environment(environment));
+                try {
+                    EvaluateVisitor innerVisitor = new EvaluateVisitor(new Environment(environment){
+                        @Override
+                        public void define(Token name, Object value) {
+                            super.defineCurrent(name, value);
+                        }
+                    });
 
                     for (int i = 0; i < fun.getParams().size(); i++) {
                         innerVisitor.environment.defineCurrent(fun.getParams().get(i), args.get(i));
                     }
 
                     fun.getBodyStmt().execute(innerVisitor);
-                }catch (TouchTopException e){
-                    if (e.getToken().getType() == TokenType.RETURN){
+                } catch (TouchTopException e) {
+                    if (e.getToken().getType() == TokenType.RETURN) {
                         return e.getToken().getLiteral();
                     }
                     throw e;
@@ -308,12 +370,67 @@ public class EvaluateVisitor implements IntegrationVisitor{
             public String toString() {
                 return "<Cox method: " + fun.getMethod().getLexeme() + ">";
             }
-        });
+        };
     }
 
     @Override
     public void visitReturn(Stmt.Return aReturn) {
         Token token = new Token(TokenType.RETURN, "return", aReturn.getExpr().execute(this), aReturn.getReturnToken().getLine());
         Cox.touchTop(token);
+    }
+
+    @Override
+    public void visitStruct(Stmt.Struct struct) {
+        Struct value = new Struct(struct.getStructName(), struct.getFunList(), this.environment);
+        this.environment.define(struct.getStructName(), value);
+    }
+
+    @Override
+    public Object visitGet(Expr.Get get) {
+        Expr expr = get.getExpr();
+        Object execute = expr.execute(this);
+
+        // 静态调用
+        if (execute instanceof Struct){
+            Stmt.Fun staticFun = ((Struct) execute).findStaticFun(get.getName().getLexeme());
+            if (staticFun == null){
+                Cox.error(get.getName().getLine(), "结构体" + ((Struct) execute).getStructName().getLexeme() + "没有" + get.getName().getLexeme() + "静态方法");
+            }
+
+            return ((Struct) execute).getStaticCall(staticFun);
+        }
+
+        if (!(execute instanceof StructInstance))
+            Cox.error(get.getName().getLine(), "不能对非对象调用 . 表达式");
+
+        StructInstance instance = (StructInstance) execute;
+
+        Object o = instance.get(get.getName());
+
+        if (o instanceof Stmt.Fun){
+            return instance.findCallable(((Stmt.Fun) o).getMethod());
+        }
+
+        return o;
+    }
+
+    @Override
+    public Object visitSet(Expr.Set set) {
+        Expr prefix = set.getPrefix();
+
+        Object execute = prefix.execute(this);
+
+        if (!(execute instanceof StructInstance))
+            Cox.error(set.getField().getLine(), "set赋值只能针对类对象");
+
+        StructInstance instance = (StructInstance) execute;
+
+        Object val = set.getValue().execute(this);
+        return instance.set(set.getField(), val);
+    }
+
+    @Override
+    public Object visitThis(Expr.This aThis) {
+        return environment.get(StructInstance.THIS);
     }
 }

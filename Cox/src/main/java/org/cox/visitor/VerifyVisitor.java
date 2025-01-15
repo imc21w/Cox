@@ -1,5 +1,6 @@
 package org.cox.visitor;
 
+import org.cox.call.Callable;
 import org.cox.env.Environment;
 import org.cox.expr.Expr;
 import org.cox.start.StartUp;
@@ -124,8 +125,12 @@ public class VerifyVisitor implements IntegrationVisitor{
     @Override
     public void visitLET(Stmt.LET let) {
         Token name = let.getName();
-        if (isDefine(name.getLexeme())) {
+        int index = findDefine(name.getLexeme());
+        if (index == 0)
             Cox.error(name.getLine(), "变量" + name.getLexeme() + "已定义");
+        if (index > 0){
+            if (findDefine("fun") > index)
+                Cox.error(name.getLine(), "变量" + name.getLexeme() + "已定义");
         }
         define(name.getLexeme());
         let.getExpr().execute(this);
@@ -175,7 +180,7 @@ public class VerifyVisitor implements IntegrationVisitor{
     @Override
     public void visitFun(Stmt.Fun fun) {
         define("fun");
-        if (isDefine(fun.getMethod().getLexeme())){
+        if (findDefine(fun.getMethod().getLexeme()) == 0){
             Cox.error(fun.getMethod().getLine(), "变量" + fun.getMethod().getLexeme() + "已定义");
         }
 
@@ -196,6 +201,38 @@ public class VerifyVisitor implements IntegrationVisitor{
     public void visitReturn(Stmt.Return aReturn) {
         if (!isDefine("fun"))
             Cox.error(aReturn.getReturnToken().getLine(), "return语句只能定义在循环内");
+    }
+
+    @Override
+    public void visitStruct(Stmt.Struct struct) {
+        if (isDefine(struct.getStructName().getLexeme()))
+            Cox.error(struct.getStructName().getLine(), "变量" + struct.getStructName().getLexeme() + "已定义");
+
+        define(struct.getStructName().getLexeme());
+
+        define("struct");
+        push();
+        struct.getFunList().forEach(e -> e.execute(this));
+        pop();
+        clear("struct");
+    }
+
+    @Override
+    public Object visitGet(Expr.Get get) {
+        get.getExpr().execute(this);
+        return null;
+    }
+
+    @Override
+    public Object visitSet(Expr.Set set) {
+        set.getPrefix().execute(this);
+        set.getValue().execute(this);
+        return null;
+    }
+
+    @Override
+    public Object visitThis(Expr.This aThis) {
+        return null;
     }
 
     private void push(){
@@ -221,7 +258,6 @@ public class VerifyVisitor implements IntegrationVisitor{
 
         return -1;
     }
-
     private boolean isDefine(String id){
         return findDefine(id) != -1;
     }

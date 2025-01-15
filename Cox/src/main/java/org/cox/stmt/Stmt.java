@@ -4,6 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.ToString;
 import org.cox.anno.Describe;
+import org.cox.call.StructInstance;
+import org.cox.env.Environment;
 import org.cox.expr.Expr;
 import org.cox.token.Token;
 import org.cox.token.TokenType;
@@ -132,6 +134,7 @@ public abstract class Stmt {
     @Getter
     @Describe("fun语句")
     public static class Fun extends Stmt{
+        private Token type;
         private Token method;
         private List<Token> params;
         private Block bodyStmt;
@@ -153,6 +156,21 @@ public abstract class Stmt {
         @Override
         public void execute(StmtVisitor visitor) {
             visitor.visitReturn(this);
+        }
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("class")
+    @ToString
+    public static class Struct extends Stmt {
+        final Token structName;
+        final Token parentName;    // 父类
+        final List<Fun> funList;
+
+        @Override
+        public void execute(StmtVisitor visitor) {
+            visitor.visitStruct(this);
         }
     }
 }
