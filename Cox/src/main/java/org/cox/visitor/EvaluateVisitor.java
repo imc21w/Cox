@@ -265,39 +265,21 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitWhile(Stmt.While aWhile) {
-        Environment env = new Environment(this.environment) {
-            @Override
-            public void define(Token name, Object value) {
-                super.defineCurrent(name, value);
-            }
-        };
+        EvaluateVisitor evaluateVisitor = new EvaluateVisitor(new Environment(this.environment));
         if (aWhile.getStartStmt() != null) {
-            aWhile.getStartStmt().execute(new EvaluateVisitor(env));
+            aWhile.getStartStmt().execute(evaluateVisitor);
         }
 
-        int line;
-        if (aWhile.getStartStmt() instanceof Stmt.LET){
-            line = ((Stmt.LET) aWhile.getStartStmt()).getName().getLine();
-        } else {
-            line = -1;
-        }
-
-        env.getEnv().forEach((k,v) -> this.environment.defineCurrent(k, line, v));
-
-        try {
-            while (isTrue(aWhile.getConditionExpr().execute(this))){
-                try{
-                    aWhile.getBodyStmt().execute(this);
-                }catch (TouchTopException e){
-                    if (e.getToken().getType() == TokenType.BREAK)
-                        return;
-                }
-
-                if (aWhile.getUpExpr() != null)
-                    aWhile.getUpExpr().execute(this);
+        while (isTrue(aWhile.getConditionExpr().execute(evaluateVisitor))){
+            try{
+                aWhile.getBodyStmt().execute(evaluateVisitor);
+            }catch (TouchTopException e){
+                if (e.getToken().getType() == TokenType.BREAK)
+                    return;
             }
-        }finally {
-            env.getEnv().forEach((k,v) -> this.environment.remove(k));
+
+            if (aWhile.getUpExpr() != null)
+                aWhile.getUpExpr().execute(evaluateVisitor);
         }
     }
 
