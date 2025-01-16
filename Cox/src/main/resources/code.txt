@@ -1,5 +1,6 @@
 struct Node{
     fun init(){
+        this.a = 10;
         println("node init");
     }
 
@@ -34,3 +35,16 @@ let a = Apple();
 println();
 a.set();
 a.look();
+println();
+
+fun fbnq(n){
+    if (n == 0)
+        return 0;
+    if (n == 1 or n == 2)
+        return 1;
+    return fbnq(n-1) + fbnq(n-2);
+}
+
+let b = time();
+println( fbnq(25) );
+println("花费了:" + (time() - b)/ 1000);
