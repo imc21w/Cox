@@ -22,9 +22,11 @@ public class CallFun implements Callable{
         this.outEnvironment.defineCurrent(fun.getMethod(), this);
     }
 
-    public static CallFun create(Stmt.Fun fun, Environment outEnvironment, StructInstance instance) {
+    public static CallFun create(Stmt.Fun fun, Environment outEnvironment, StructInstance instance, StructInstance parent) {
         Environment environment = new Environment(outEnvironment);
         environment.defineCurrent("this", fun.getMethod().getLine(), instance);
+        if (parent != null)
+            environment.defineCurrent("super", fun.getMethod().getLine(), parent);
         return new CallFun(fun, environment, TokenType.FUN);
     }
 

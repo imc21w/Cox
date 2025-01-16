@@ -240,6 +240,11 @@ public class VerifyVisitor implements IntegrationVisitor{
         return null;
     }
 
+    @Override
+    public Object visitSuper(Expr.Super aSuper) {
+        return null;
+    }
+
     private void push(){
         stack.add(new HashMap<>());
     }

@@ -2,6 +2,7 @@ package org.cox.start;
 
 import org.cox.call.Callable;
 import org.cox.call.NativeCallable;
+import org.cox.call.Struct;
 import org.cox.env.Environment;
 import org.cox.token.Token;
 import org.cox.visitor.EvaluateVisitor;
@@ -81,6 +82,9 @@ public class StartUp {
                 return null;
             }
         });
+
+        // 所有对象的父类
+        env.defineCurrent("Object", -1, new Struct(Struct.OBJECT, null, List.of(), new Environment()));
 
         return env;
     }

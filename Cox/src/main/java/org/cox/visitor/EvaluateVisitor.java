@@ -364,7 +364,7 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitStruct(Stmt.Struct struct) {
-        Struct value = new Struct(struct.getStructName(), struct.getFunList(), this.environment);
+        Struct value = new Struct(struct.getStructName(), struct.getParentName(), struct.getFunList(), this.environment);
         this.environment.define(struct.getStructName(), value);
     }
 
@@ -404,5 +404,14 @@ public class EvaluateVisitor implements IntegrationVisitor{
     @Override
     public Object visitThis(Expr.This aThis) {
         return environment.get(aThis.getKey());
+    }
+
+    @Override
+    public Object visitSuper(Expr.Super aSuper) {
+        if (!environment.isDefined(aSuper.getKey()))
+            Cox.error(aSuper.getKey().getLine(), "无父类场景不能调用 super 关键字");
+
+        StructInstance parent = ((StructInstance) environment.get(aSuper.getKey()));
+        return parent.getDeep(aSuper.getField().getLexeme());
     }
 }

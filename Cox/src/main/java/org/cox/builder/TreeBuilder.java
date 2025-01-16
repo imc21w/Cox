@@ -26,7 +26,7 @@ import java.util.List;
  * call           -> primary ("(" param? ")" | "." identifier ) *
  * param          -> expression ( "," expression)*
  * primary        -> NUMBER | STRING | "true" | "false" | "null"
- *                | "(" expression ")" | identifier | this | super ("." call)+;
+ *                | "(" expression ")" | identifier | this | super "." identifier;
  */
 
 /**
@@ -139,6 +139,9 @@ public class TreeBuilder {
         if (match(TokenType.EXTENDS)){
             Assert(TokenType.IDENTIFIER, "继承格式错误");
             parent = previous();
+
+            if (parent.getLexeme().equals(structName.getLexeme()))
+                Cox.error(parent.getLine(), "继承类不能和声明类名称一致");
         }
 
         Assert(TokenType.LEFT_BRACE, "结构体定义后面必须有 {");
@@ -332,6 +335,11 @@ public class TreeBuilder {
                 Expr.Get get = (Expr.Get) expr;
                 return new Expr.Set(get.getExpr(), get.getName(), equality);
             }
+
+            // Cox对 super.a = XX 的赋值无效，有兴趣可以实现
+            if (expr instanceof Expr.Super){
+                Cox.error(((Expr.Super) expr).getField().getLine(), "不能给父类的对象赋值");
+            }
         }
 
         return expr;
@@ -499,6 +507,10 @@ public class TreeBuilder {
                 return new Expr.Variable(token);
             case THIS:
                 return new Expr.This(token);
+            case SUPER:
+                Assert(TokenType.DOT, "super关键字后面只能接 . 表达式");
+                Assert(TokenType.IDENTIFIER, ". 表达式后面需要接变量名");
+                return new Expr.Super(token, previous());
             case LEFT_PAREN:
                 Expr expr = expression();
                 Assert(TokenType.RIGHT_PAREN, "必须有匹配的右括号");

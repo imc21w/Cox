@@ -27,4 +27,6 @@ public interface ExprVisitor {
     Object visitSet(Expr.Set set);
 
     Object visitThis(Expr.This aThis);
+
+    Object visitSuper(Expr.Super aSuper);
 }

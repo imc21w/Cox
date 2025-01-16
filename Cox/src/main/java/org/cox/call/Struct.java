@@ -16,15 +16,21 @@ import java.util.Map;
 @Getter
 public class Struct implements Callable{
 
+    public final static Token OBJECT = new Token(null, "Object", null, -1);
+
     private final Token structName;  // 结构体名
     private final Map<String, Stmt.Fun> funPool = new HashMap<>();  // 方法池
     private final Map<String, CallFun> staticFunPool = new HashMap<>();    // 静态方法池
     private Stmt.Fun initFun;   //构造方法
 
+    private final Struct parent;  // 父类
+
     private final Environment innerEnvironment; // 结构体内部环境，引用所属的外部环境
 
-    public Struct(Token structName, List<Stmt.Fun> funList, Environment outEnvironment) {
+    public Struct(Token structName, Token parentName, List<Stmt.Fun> funList, Environment outEnvironment) {
         this.structName = structName;
+
+        this.parent = initParent(structName, parentName, outEnvironment);
 
         this.innerEnvironment = new Environment(outEnvironment);
 
@@ -45,6 +51,19 @@ public class Struct implements Callable{
         }
     }
 
+    private Struct initParent(Token structName, Token parentName, Environment outEnvironment) {
+
+        if (structName.getLexeme().equals("Object"))
+            return null;
+
+        Object parentObj = parentName == null ? outEnvironment.get(OBJECT) : outEnvironment.get(parentName);
+
+        if (!(parentObj instanceof Struct))
+            Cox.error(structName.getLine(), "继承类不存在或不是类变量");
+
+        return (Struct) parentObj;
+    }
+
 
     @Override
     public int getArgsCount() {
@@ -53,10 +72,7 @@ public class Struct implements Callable{
 
     @Override
     public Object call(IntegrationVisitor visitor, List<Object> args) {
-        StructInstance structInstance = new StructInstance(this, funPool);
-        if (initFun != null)
-            structInstance.call(visitor, initFun.getMethod(), args);
-        return structInstance;
+        return new StructInstance(this, funPool, visitor, args);
     }
 
     public Callable getStaticCall(Token methodName) {

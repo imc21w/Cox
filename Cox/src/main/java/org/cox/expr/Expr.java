@@ -182,4 +182,18 @@ public abstract class Expr {
             return visitor.visitThis(this);
         }
     }
+
+    @Getter
+    @AllArgsConstructor
+    @Describe("super")
+    @ToString
+    public static class Super extends Expr {
+        final Token key;
+        final Token field;
+
+        @Override
+        public Object execute(ExprVisitor visitor) {
+            return visitor.visitSuper(this);
+        }
+    }
 }
