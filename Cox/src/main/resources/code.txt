@@ -1,12 +1,13 @@
 let a = 10;
 let b = 12;
 
+
 for (let i = 0; i < 10 ; i = i+1){
     for (let j = 0 ; j < 5; j = j + 1){
         if ((i + j) % 3 == 1)
             continue;
 
-        print "i = " + i + " & j = " + j;
+        println ("i = " + i + " & j = " + j);
     }
 }
 
@@ -38,6 +39,14 @@ struct Math{
         return this;
     }
 
+    fun make(a){
+        return a + 1;
+    }
+
+    fun show(){
+        println(this.make(99));
+    }
+
     static fun count(b){
         print "count --> " + b;
         return;
@@ -63,3 +72,9 @@ count()();
 
 Math.look();
 math.look();
+println();
+math.show();
+
+print length(math.a);
+
+println(a, " ===> ", "java", "null");

@@ -6,7 +6,6 @@ import org.cox.stmt.Stmt;
 import org.cox.token.Token;
 import org.cox.token.TokenType;
 import org.cox.utils.Cox;
-import org.cox.visitor.EvaluateVisitor;
 import org.cox.visitor.IntegrationVisitor;
 
 import java.util.HashMap;
@@ -19,24 +18,15 @@ public class Struct implements Callable{
 
     private final Token structName;  // 结构体名
     private final Map<String, Stmt.Fun> funPool = new HashMap<>();  // 方法池
-    private final Map<String, Stmt.Fun> staticFunPool = new HashMap<>();    // 静态方法池
+    private final Map<String, CallFun> staticFunPool = new HashMap<>();    // 静态方法池
     private Stmt.Fun initFun;   //构造方法
 
-    private final Environment outEnvironment;   // 结构体所属的外部环境
-    private final Environment structOfEnvironment;
+    private final Environment innerEnvironment; // 结构体内部环境，引用所属的外部环境
 
     public Struct(Token structName, List<Stmt.Fun> funList, Environment outEnvironment) {
         this.structName = structName;
 
-        this.outEnvironment = outEnvironment;
-        this.structOfEnvironment = new Environment(outEnvironment){
-            @Override
-            public void define(Token name, Object value) {
-                super.defineCurrent(name, value);
-            }
-        };
-
-        EvaluateVisitor evaluateVisitor = new EvaluateVisitor(this.structOfEnvironment);
+        this.innerEnvironment = new Environment(outEnvironment);
 
         for (Stmt.Fun fun : funList) {
             // 构造方法
@@ -45,13 +35,10 @@ public class Struct implements Callable{
             }
 
             if (fun.getType() != null && fun.getType().getType() == TokenType.STATIC)
-                staticFunPool.put(fun.getMethod().getLexeme(), fun);
+                staticFunPool.put(fun.getMethod().getLexeme(), CallFun.createStatic(fun, innerEnvironment));
             else
                 funPool.put(fun.getMethod().getLexeme(), fun);
         }
-
-        // 方法注册
-        staticFunPool.values().forEach(e -> e.execute(evaluateVisitor));
 
         if (initFun != null && initFun.getType() != null && initFun.getType().getType() == TokenType.STATIC){
             Cox.error(initFun.getMethod().getLine(), "构造函数" + initFun.getMethod().getLexeme() + "不能被static 修饰");
@@ -72,18 +59,23 @@ public class Struct implements Callable{
         return structInstance;
     }
 
-    public Callable getStaticCall(Stmt.Fun fun) {
+    public Callable getStaticCall(Token methodName) {
 
-        if (structOfEnvironment.isDefined(fun.getMethod())){
-            return ((Callable) structOfEnvironment.get(fun.getMethod()));
-        }
+        Callable callable = safeGetStaticCall(methodName);
+        if (callable != null)
+            return callable;
 
-        Cox.error(fun.getMethod().getLine(), "未定义的方法：" + fun.getMethod().getLexeme());
+        Cox.error(methodName.getLine(), "未定义的静态方法：" + methodName.getLexeme());
         return null;
     }
 
-    public Stmt.Fun findStaticFun(String name) {
-        return staticFunPool.get(name);
+    public Callable safeGetStaticCall(Token methodName) {
+
+        if (staticFunPool.containsKey(methodName.getLexeme())){
+            return staticFunPool.get(methodName.getLexeme());
+        }
+
+        return null;
     }
 
     @Override

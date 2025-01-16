@@ -129,11 +129,16 @@ public class VerifyVisitor implements IntegrationVisitor{
         if (index == 0)
             Cox.error(name.getLine(), "变量" + name.getLexeme() + "已定义");
         if (index > 0){
-            if (findDefine("fun") > index)
+            if (findDefine("fun") == -1 || findDefine("fun") > index)
                 Cox.error(name.getLine(), "变量" + name.getLexeme() + "已定义");
         }
         define(name.getLexeme());
         let.getExpr().execute(this);
+    }
+
+    @Override
+    public Callable bornCallable(Stmt.Fun fun,  Environment close) {
+        return null;
     }
 
     @Override

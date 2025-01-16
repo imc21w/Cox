@@ -1,14 +1,12 @@
 package org.cox.call;
 
 import lombok.Getter;
-import org.cox.env.Environment;
 import org.cox.stmt.Stmt;
 import org.cox.token.Token;
-import org.cox.token.TokenType;
 import org.cox.utils.Cox;
-import org.cox.visitor.EvaluateVisitor;
 import org.cox.visitor.IntegrationVisitor;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -17,21 +15,11 @@ public class StructInstance {
 
     private final Struct struct;
 
-    private final Environment instancePool;       // 实例环境
-
-    public final static Token THIS = new Token(TokenType.THIS, "this", null, -1);
+    private final Map<String, Object> fieldPool = new HashMap<>();
 
     public StructInstance(Struct struct, Map<String, Stmt.Fun> funPool) {
         this.struct = struct;
-        this.instancePool = new Environment(struct.getStructOfEnvironment()){
-            @Override
-            public void define(Token name, Object value) {
-                super.defineCurrent(name, value);
-            }
-        };
-        this.instancePool.defineCurrent(THIS, this);
-        EvaluateVisitor evaluateVisitor = new EvaluateVisitor(this.instancePool);
-        funPool.values().forEach(e -> e.execute(evaluateVisitor));
+        funPool.forEach((k, v) -> fieldPool.put(k, CallFun.create(v, struct.getInnerEnvironment(), this)));
     }
 
     @Override
@@ -40,41 +28,24 @@ public class StructInstance {
     }
 
     public Object get(Token name) {
+        Object o = fieldPool.get(name.getLexeme());
 
-        if (instancePool.isDefined(name))
-            return instancePool.get(name);
+        if (o == null)
+            return struct.safeGetStaticCall(name);
 
-        Cox.error(name.getLine(), "未知的变量名:" + name.getLexeme());
-
-        return null;
+        return o;
     }
 
     public Object set(Token name, Object val) {
-        instancePool.remove(name);
-        instancePool.defineCurrent(name, val);
-        return val;
-    }
-
-    public Callable findCallable(Token name) {
-
-        Object get = get(name);
-        if (get == null )
-            Cox.error(name.getLine(), "未声明的方法:" + name.getLexeme());
-
-        if (!(get instanceof Callable)) {
-            Cox.error(name.getLine(), "变量" + name.getLexeme() + "不是方法");
-        }
-
-        return ((Callable) get);
+        return fieldPool.put(name.getLexeme(), val);
     }
 
     public Object call(IntegrationVisitor visitor, Token methodName, List<Object> args) {
-        Callable callable = findCallable(methodName);
+        Object call = get(methodName);
 
-        if (callable != null)
-            return callable.call(visitor, args);
+        if (!(call instanceof Callable))
+            Cox.error(methodName.getLine(), "变量" + methodName.getLexeme() + "不是方法");
 
-        Cox.error(methodName.getLine(), "未定义的方法名：" + methodName.getLexeme());
-        return null;
+        return ((Callable) call).call(visitor, args);
     }
 }

@@ -182,10 +182,10 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitPrint(Stmt.Print print) {
-        System.out.println(castInt(print.getExpr().execute(this)));
+        System.out.print(castInt(print.getExpr().execute(this)));
     }
 
-    private Object castInt(Object value){
+    public static Object castInt(Object value){
         if (value instanceof BigDecimal){
             if (((BigDecimal) value).stripTrailingZeros().scale() <= 0) {
                 return ((BigDecimal) value).toBigInteger();
@@ -323,7 +323,7 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
         Callable callable = (Callable) execute;
 
-        if (callable.getArgsCount() != args.size())
+        if (callable.getArgsCount() != -1 && callable.getArgsCount() != args.size())
             Cox.error(call.getParen().getLine(), "方法入参数量不对");
 
         return callable.call(this, args);
@@ -331,11 +331,12 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public void visitFun(Stmt.Fun fun) {
-        Callable call = getCallable(fun);
+        Callable call = bornCallable(fun, this.environment);
         environment.define(fun.getMethod(), call);
     }
 
-    private Callable getCallable(Stmt.Fun fun) {
+    @Override
+    public Callable bornCallable(Stmt.Fun fun, Environment close) {
         return new Callable() {
             @Override
             public int getArgsCount() {
@@ -345,7 +346,7 @@ public class EvaluateVisitor implements IntegrationVisitor{
             @Override
             public Object call(IntegrationVisitor visitor, List<Object> args) {
                 try {
-                    EvaluateVisitor innerVisitor = new EvaluateVisitor(new Environment(environment){
+                    EvaluateVisitor innerVisitor = new EvaluateVisitor(new Environment(close){
                         @Override
                         public void define(Token name, Object value) {
                             super.defineCurrent(name, value);
@@ -392,12 +393,7 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
         // 静态调用
         if (execute instanceof Struct){
-            Stmt.Fun staticFun = ((Struct) execute).findStaticFun(get.getName().getLexeme());
-            if (staticFun == null){
-                Cox.error(get.getName().getLine(), "结构体" + ((Struct) execute).getStructName().getLexeme() + "没有" + get.getName().getLexeme() + "静态方法");
-            }
-
-            return ((Struct) execute).getStaticCall(staticFun);
+            return ((Struct) execute).getStaticCall(get.getName());
         }
 
         if (!(execute instanceof StructInstance))
@@ -405,13 +401,7 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
         StructInstance instance = (StructInstance) execute;
 
-        Object o = instance.get(get.getName());
-
-        if (o instanceof Stmt.Fun){
-            return instance.findCallable(((Stmt.Fun) o).getMethod());
-        }
-
-        return o;
+        return instance.get(get.getName());
     }
 
     @Override
@@ -431,6 +421,6 @@ public class EvaluateVisitor implements IntegrationVisitor{
 
     @Override
     public Object visitThis(Expr.This aThis) {
-        return environment.get(StructInstance.THIS);
+        return environment.get(aThis.getKey());
     }
 }

@@ -26,12 +26,12 @@ import java.util.List;
  * call           -> primary ("(" param? ")" | "." identifier ) *
  * param          -> expression ( "," expression)*
  * primary        -> NUMBER | STRING | "true" | "false" | "null"
- *                | "(" expression ")" | identifier ;
+ *                | "(" expression ")" | identifier | this | super ("." call)+;
  */
 
 /**
  * stmt           -> expressionStmt | print | let | block | if | while | fun | struct
- * struct         -> "struct" identifier "{" fun* "}"
+ * struct         -> "struct" identifier (extends identifier)? "{" fun* "}"
  * fun            -> "fun" identifier "(" params? ")" block
  * params         -> identifier ("," identifier)*
  * if             -> "(" expression ")" stmt ("when" "(" expression ")" stmt)* ("else" stmt)?
